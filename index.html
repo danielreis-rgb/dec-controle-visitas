@@ -5,23 +5,36 @@
   <meta charset="UTF-8">
   <meta name="viewport"
         content="width=device-width, initial-scale=1">
+
   <title>DEC | Controle de Visitas</title>
+
+  <script src="https://accounts.google.com/gsi/client"
+          async defer></script>
+
   <style>
+    * { box-sizing: border-box; }
+
     body {
       font-family: Arial, sans-serif;
       background: #f1f5f9;
       margin: 0;
-      padding: 25px;
+      padding: 20px;
     }
+
     .card {
       background: white;
       border-radius: 16px;
       padding: 25px;
       max-width: 480px;
-      margin: 30px auto;
+      margin: 20px auto;
       box-shadow: 0 4px 15px #0001;
     }
-    h1 { color: #174ea6; }
+
+    h1 {
+      color: #174ea6;
+      font-size: 25px;
+    }
+
     button {
       width: 100%;
       padding: 15px;
@@ -31,72 +44,252 @@
       border-radius: 10px;
       font-size: 16px;
       margin-top: 12px;
+      cursor: pointer;
     }
+
     video {
       width: 100%;
       border-radius: 10px;
       margin-top: 15px;
     }
-    #status { margin-top: 15px; }
+
+    #status {
+      margin-top: 15px;
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+    }
+
+    #areaApp {
+      display: none;
+    }
+
+    #googleButton {
+      margin-top: 20px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .usuario {
+      background: #e8f5e9;
+      padding: 12px;
+      border-radius: 10px;
+      margin: 15px 0;
+      overflow-wrap: anywhere;
+    }
   </style>
 </head>
+
 <body>
+
   <div class="card">
+
     <h1>DEC | Controle de Visitas</h1>
-    <p>Teste de câmera e GPS</p>
 
-    <button onclick="abrirCamera()">
-      Abrir câmera
-    </button>
+    <div id="areaLogin">
+      <p>Entre com seu e-mail corporativo para continuar.</p>
 
-    <video id="camera"
-           autoplay
-           playsinline></video>
+      <div id="googleButton"></div>
+    </div>
 
-    <button onclick="capturarGPS()">
-      Capturar GPS
-    </button>
+    <div id="areaApp">
 
-    <p id="status">Aguardando teste...</p>
+      <div class="usuario">
+        <strong>Usuário autenticado:</strong>
+        <div id="emailUsuario"></div>
+      </div>
+
+      <h3>Teste de câmera</h3>
+
+      <button onclick="abrirCamera()">
+        Abrir câmera
+      </button>
+
+      <video id="camera"
+             autoplay
+             playsinline></video>
+
+      <h3>Teste de localização</h3>
+
+      <button onclick="capturarGPS()">
+        Capturar GPS
+      </button>
+
+      <button onclick="sair()"
+              style="background:#64748b">
+        Sair
+      </button>
+
+    </div>
+
+    <p id="status">Aguardando login...</p>
+
   </div>
 
   <script>
-    async function abrirCamera() {
+
+    const CLIENT_ID =
+      "121971734204-q0j63d6bl0l45alafp5ddbu11rprpb1e.apps.googleusercontent.com";
+
+    const API_URL =
+      "https://dec-controle-visitas-api.daniel-reis-1fa.workers.dev";
+
+    let cameraStream = null;
+
+    function statusMensagem(texto) {
+      document.getElementById("status").textContent = texto;
+    }
+
+    function iniciarGoogle() {
+
+      if (!window.google?.accounts?.id) {
+        statusMensagem("Aguardando carregamento do Google...");
+        setTimeout(iniciarGoogle, 500);
+        return;
+      }
+
+      google.accounts.id.initialize({
+        client_id: CLIENT_ID,
+        callback: receberLoginGoogle,
+        auto_select: false
+      });
+
+      google.accounts.id.renderButton(
+        document.getElementById("googleButton"),
+        {
+          theme: "outline",
+          size: "large",
+          text: "signin_with",
+          width: 280
+        }
+      );
+
+      statusMensagem("Faça login para continuar.");
+    }
+
+    async function receberLoginGoogle(resposta) {
+
+      statusMensagem("Validando sua conta Google...");
+
       try {
-        const stream =
+
+        const resultado = await fetch(API_URL + "/auth", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + resposta.credential
+          }
+        });
+
+        const dados = await resultado.json();
+
+        if (!resultado.ok || !dados.ok) {
+          throw new Error(dados.erro || "Falha na autenticação.");
+        }
+
+        document.getElementById("emailUsuario").textContent =
+          dados.email;
+
+        document.getElementById("areaLogin").style.display =
+          "none";
+
+        document.getElementById("areaApp").style.display =
+          "block";
+
+        statusMensagem("Login Google validado com sucesso!");
+
+      } catch (erro) {
+
+        statusMensagem("Erro no login: " + erro.message);
+
+      }
+    }
+
+    async function abrirCamera() {
+
+      try {
+
+        if (cameraStream) {
+          cameraStream.getTracks().forEach(track => track.stop());
+        }
+
+        cameraStream =
           await navigator.mediaDevices.getUserMedia({
             video: { facingMode: "environment" },
             audio: false
           });
 
         document.getElementById("camera").srcObject =
-          stream;
+          cameraStream;
 
-        document.getElementById("status").textContent =
-          "Câmera funcionando!";
+        statusMensagem("Câmera funcionando!");
+
       } catch (erro) {
-        document.getElementById("status").textContent =
-          "Erro na câmera: " + erro.message;
+
+        statusMensagem("Erro na câmera: " + erro.message);
+
       }
     }
 
     function capturarGPS() {
+
+      if (!navigator.geolocation) {
+        statusMensagem("GPS não disponível neste dispositivo.");
+        return;
+      }
+
+      statusMensagem("Capturando localização...");
+
       navigator.geolocation.getCurrentPosition(
+
         pos => {
-          document.getElementById("status").textContent =
+
+          statusMensagem(
             "GPS funcionando! Precisão: " +
-            Math.round(pos.coords.accuracy) + " metros";
+            Math.round(pos.coords.accuracy) +
+            " metros"
+          );
+
         },
+
         erro => {
-          document.getElementById("status").textContent =
-            "Erro no GPS: " + erro.message;
+
+          statusMensagem("Erro no GPS: " + erro.message);
+
         },
+
         {
           enableHighAccuracy: true,
-          timeout: 20000
+          timeout: 20000,
+          maximumAge: 0
         }
       );
     }
+
+    function sair() {
+
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+      }
+
+      document.getElementById("camera").srcObject = null;
+
+      document.getElementById("areaApp").style.display =
+        "none";
+
+      document.getElementById("areaLogin").style.display =
+        "block";
+
+      document.getElementById("emailUsuario").textContent = "";
+
+      google.accounts.id.disableAutoSelect();
+
+      statusMensagem("Sessão encerrada. Faça login novamente.");
+    }
+
+    window.addEventListener("load", iniciarGoogle);
+
   </script>
+
 </body>
 </html>
