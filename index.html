@@ -8,24 +8,30 @@
 
   <title>DEC | Controle de Visitas</title>
 
-  <script src="https://accounts.google.com/gsi/client"
-          async defer></script>
+  <script
+    src="https://accounts.google.com/gsi/client"
+    async
+    defer>
+  </script>
 
   <style>
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
 
     body {
       font-family: Arial, sans-serif;
       background: #f1f5f9;
       margin: 0;
       padding: 20px;
+      color: #172033;
     }
 
     .card {
       background: white;
       border-radius: 16px;
-      padding: 25px;
-      max-width: 480px;
+      padding: 24px;
+      max-width: 520px;
       margin: 20px auto;
       box-shadow: 0 4px 15px #0001;
     }
@@ -33,6 +39,11 @@
     h1 {
       color: #174ea6;
       font-size: 25px;
+      margin-top: 0;
+    }
+
+    h3 {
+      margin-top: 24px;
     }
 
     button {
@@ -47,16 +58,29 @@
       cursor: pointer;
     }
 
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    input {
+      width: 100%;
+      padding: 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      font-size: 16px;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: #185abc;
+    }
+
     video {
       width: 100%;
       border-radius: 10px;
       margin-top: 15px;
-    }
-
-    #status {
-      margin-top: 15px;
-      line-height: 1.5;
-      overflow-wrap: anywhere;
+      background: #e2e8f0;
     }
 
     #areaApp {
@@ -76,6 +100,65 @@
       margin: 15px 0;
       overflow-wrap: anywhere;
     }
+
+    .cliente {
+      background: #f1f5f9;
+      border-radius: 10px;
+      padding: 14px;
+      margin-top: 10px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .cliente strong {
+      display: block;
+      color: #174ea6;
+      margin-bottom: 6px;
+    }
+
+    .detalhe {
+      font-size: 13px;
+      color: #475569;
+      margin-top: 4px;
+      overflow-wrap: anywhere;
+    }
+
+    .total {
+      font-size: 14px;
+      color: #475569;
+      margin: 12px 0;
+    }
+
+    .secao {
+      border-top: 1px solid #e2e8f0;
+      margin-top: 25px;
+      padding-top: 8px;
+    }
+
+    #status {
+      margin-top: 20px;
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+    }
+
+    .erro {
+      color: #b91c1c;
+    }
+
+    .sucesso {
+      color: #166534;
+    }
+
+    .secundario {
+      background: #64748b;
+    }
+
+    .vazio {
+      padding: 18px;
+      background: #f8fafc;
+      border-radius: 10px;
+      text-align: center;
+      color: #64748b;
+    }
   </style>
 </head>
 
@@ -85,11 +168,20 @@
 
     <h1>DEC | Controle de Visitas</h1>
 
+    <!-- LOGIN GOOGLE -->
+
     <div id="areaLogin">
-      <p>Entre com seu e-mail corporativo para continuar.</p>
+
+      <p>
+        Entre com seu e-mail corporativo
+        para continuar.
+      </p>
 
       <div id="googleButton"></div>
+
     </div>
+
+    <!-- APLICATIVO -->
 
     <div id="areaApp">
 
@@ -98,34 +190,67 @@
         <div id="emailUsuario"></div>
       </div>
 
-      <h3>Teste de câmera</h3>
+      <!-- CARTEIRA DE CLIENTES -->
 
-      <button onclick="abrirCamera()">
-        Abrir câmera
-      </button>
+      <section id="areaClientes">
 
-      <video id="camera"
-             autoplay
-             playsinline></video>
+        <h3>Minha carteira de clientes</h3>
 
-      <h3>Teste de localização</h3>
+        <input
+          type="search"
+          id="pesquisaCliente"
+          placeholder="Pesquisar nome, código ou CNPJ"
+          oninput="filtrarClientes()"
+        >
 
-      <button onclick="capturarGPS()">
-        Capturar GPS
-      </button>
+        <p id="totalClientes" class="total"></p>
 
-      <button onclick="sair()"
-              style="background:#64748b">
+        <div id="listaClientes"></div>
+
+      </section>
+
+      <!-- TESTES DE CÂMERA E GPS -->
+
+      <section class="secao">
+
+        <h3>Teste de câmera</h3>
+
+        <button onclick="abrirCamera()">
+          Abrir câmera
+        </button>
+
+        <video
+          id="camera"
+          autoplay
+          muted
+          playsinline>
+        </video>
+
+        <h3>Teste de localização</h3>
+
+        <button onclick="capturarGPS()">
+          Capturar GPS
+        </button>
+
+      </section>
+
+      <button
+        class="secundario"
+        onclick="sair()">
         Sair
       </button>
 
     </div>
 
-    <p id="status">Aguardando login...</p>
+    <p id="status" aria-live="polite">
+      Aguardando login...
+    </p>
 
   </div>
 
   <script>
+
+    // CONFIGURAÇÕES
 
     const CLIENT_ID =
       "121971734204-q0j63d6bl0l45alafp5ddbu11rprpb1e.apps.googleusercontent.com";
@@ -134,15 +259,25 @@
       "https://dec-controle-visitas-api.daniel-reis-1fa.workers.dev";
 
     let cameraStream = null;
+    let tokenGoogle = "";
+    let clientesCarteira = [];
 
-    function statusMensagem(texto) {
-      document.getElementById("status").textContent = texto;
+    // MENSAGENS
+
+    function statusMensagem(texto, tipo = "") {
+      const elemento = document.getElementById("status");
+
+      elemento.textContent = texto;
+      elemento.className = tipo;
     }
+
+    // INICIAR LOGIN GOOGLE
 
     function iniciarGoogle() {
 
       if (!window.google?.accounts?.id) {
         statusMensagem("Aguardando carregamento do Google...");
+
         setTimeout(iniciarGoogle, 500);
         return;
       }
@@ -166,25 +301,35 @@
       statusMensagem("Faça login para continuar.");
     }
 
+    // AUTENTICAÇÃO
+
     async function receberLoginGoogle(resposta) {
 
       statusMensagem("Validando sua conta Google...");
 
       try {
 
+        if (!resposta?.credential) {
+          throw new Error("Token Google não recebido.");
+        }
+
         const resultado = await fetch(API_URL + "/auth", {
           method: "POST",
           headers: {
-            "Content-Type": "application/json",
             "Authorization": "Bearer " + resposta.credential
           }
         });
 
         const dados = await resultado.json();
 
-        if (!resultado.ok || !dados.ok) {
-          throw new Error(dados.erro || "Falha na autenticação.");
+        if (!resultado.ok || !dados.ok ||
+            dados.autorizado !== true) {
+          throw new Error(
+            dados.erro || "Vendedor não autorizado."
+          );
         }
+
+        tokenGoogle = resposta.credential;
 
         document.getElementById("emailUsuario").textContent =
           dados.email;
@@ -195,14 +340,172 @@
         document.getElementById("areaApp").style.display =
           "block";
 
-        statusMensagem("Login Google validado com sucesso!");
+        statusMensagem(
+          "Vendedor autenticado com sucesso!",
+          "sucesso"
+        );
+
+        await carregarClientes();
 
       } catch (erro) {
 
-        statusMensagem("Erro no login: " + erro.message);
+        tokenGoogle = "";
 
+        document.getElementById("areaApp").style.display =
+          "none";
+
+        document.getElementById("areaLogin").style.display =
+          "block";
+
+        statusMensagem(
+          "Erro no login: " + erro.message,
+          "erro"
+        );
       }
     }
+
+    // CARREGAR CARTEIRA
+
+    async function carregarClientes() {
+
+      statusMensagem("Carregando carteira de clientes...");
+
+      try {
+
+        if (!tokenGoogle) {
+          throw new Error("Faça login novamente.");
+        }
+
+        const resposta = await fetch(
+          API_URL + "/clientes",
+          {
+            method: "POST",
+            headers: {
+              "Authorization": "Bearer " + tokenGoogle
+            }
+          }
+        );
+
+        const dados = await resposta.json();
+
+        if (!resposta.ok || !dados.ok) {
+          throw new Error(
+            dados.erro || "Não foi possível carregar os clientes."
+          );
+        }
+
+        clientesCarteira = Array.isArray(dados.clientes)
+          ? dados.clientes
+          : [];
+
+        filtrarClientes();
+
+        statusMensagem(
+          "Carteira carregada com sucesso!",
+          "sucesso"
+        );
+
+      } catch (erro) {
+
+        clientesCarteira = [];
+        filtrarClientes();
+
+        statusMensagem(
+          "Erro ao carregar carteira: " + erro.message,
+          "erro"
+        );
+      }
+    }
+
+    // PESQUISAR CLIENTES
+
+    function filtrarClientes() {
+
+      const pesquisa = document
+        .getElementById("pesquisaCliente")
+        .value
+        .trim()
+        .toLocaleLowerCase("pt-BR");
+
+      const encontrados = clientesCarteira.filter(cliente => {
+
+        const campos = [
+          cliente.nome,
+          cliente.codigo,
+          cliente.cnpj,
+          cliente.cidade
+        ];
+
+        return campos.some(campo =>
+          String(campo || "")
+            .toLocaleLowerCase("pt-BR")
+            .includes(pesquisa)
+        );
+      });
+
+      document.getElementById("totalClientes").textContent =
+        encontrados.length +
+        " cliente(s) encontrado(s) de " +
+        clientesCarteira.length;
+
+      const lista = document.getElementById("listaClientes");
+
+      lista.replaceChildren();
+
+      if (encontrados.length === 0) {
+
+        const vazio = document.createElement("div");
+        vazio.className = "vazio";
+
+        vazio.textContent = clientesCarteira.length === 0
+          ? "Nenhum cliente vinculado ao seu e-mail."
+          : "Nenhum cliente encontrado na pesquisa.";
+
+        lista.appendChild(vazio);
+        return;
+      }
+
+      encontrados.forEach(cliente => {
+
+        const item = document.createElement("div");
+        item.className = "cliente";
+
+        const nome = document.createElement("strong");
+        nome.textContent = cliente.nome || "Cliente sem nome";
+
+        const codigo = document.createElement("div");
+        codigo.className = "detalhe";
+        codigo.textContent =
+          "Código: " + (cliente.codigo || "-");
+
+        const cnpj = document.createElement("div");
+        cnpj.className = "detalhe";
+        cnpj.textContent =
+          "CNPJ/CPF: " + (cliente.cnpj || "-");
+
+        const cidade = document.createElement("div");
+        cidade.className = "detalhe";
+        cidade.textContent =
+          "Cidade: " + (cliente.cidade || "-");
+
+        const endereco = document.createElement("div");
+        endereco.className = "detalhe";
+        endereco.textContent =
+          "Endereço: " + (cliente.endereco || "-");
+
+        item.append(
+          nome,
+          codigo,
+          cnpj,
+          cidade,
+          endereco
+        );
+
+        lista.appendChild(item);
+      });
+    }
+
+    // CÂMERA
 
     async function abrirCamera() {
 
@@ -214,26 +517,38 @@
 
         cameraStream =
           await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: "environment" },
+            video: {
+              facingMode: "environment"
+            },
             audio: false
           });
 
         document.getElementById("camera").srcObject =
           cameraStream;
 
-        statusMensagem("Câmera funcionando!");
+        statusMensagem(
+          "Câmera funcionando!",
+          "sucesso"
+        );
 
       } catch (erro) {
 
-        statusMensagem("Erro na câmera: " + erro.message);
-
+        statusMensagem(
+          "Erro na câmera: " + erro.message,
+          "erro"
+        );
       }
     }
+
+    // GPS
 
     function capturarGPS() {
 
       if (!navigator.geolocation) {
-        statusMensagem("GPS não disponível neste dispositivo.");
+        statusMensagem(
+          "GPS não disponível neste dispositivo.",
+          "erro"
+        );
         return;
       }
 
@@ -246,15 +561,17 @@
           statusMensagem(
             "GPS funcionando! Precisão: " +
             Math.round(pos.coords.accuracy) +
-            " metros"
+            " metros",
+            "sucesso"
           );
-
         },
 
         erro => {
 
-          statusMensagem("Erro no GPS: " + erro.message);
-
+          statusMensagem(
+            "Erro no GPS: " + erro.message,
+            "erro"
+          );
         },
 
         {
@@ -265,6 +582,8 @@
       );
     }
 
+    // SAIR
+
     function sair() {
 
       if (cameraStream) {
@@ -274,18 +593,28 @@
 
       document.getElementById("camera").srcObject = null;
 
+      tokenGoogle = "";
+      clientesCarteira = [];
+
+      document.getElementById("pesquisaCliente").value = "";
+      document.getElementById("listaClientes").replaceChildren();
+      document.getElementById("totalClientes").textContent = "";
+      document.getElementById("emailUsuario").textContent = "";
+
       document.getElementById("areaApp").style.display =
         "none";
 
       document.getElementById("areaLogin").style.display =
         "block";
 
-      document.getElementById("emailUsuario").textContent = "";
-
-      google.accounts.id.disableAutoSelect();
+      if (window.google?.accounts?.id) {
+        google.accounts.id.disableAutoSelect();
+      }
 
       statusMensagem("Sessão encerrada. Faça login novamente.");
     }
+
+    // INICIALIZAÇÃO
 
     window.addEventListener("load", iniciarGoogle);
 
