@@ -1,0 +1,102 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1">
+  <title>DEC | Controle de Visitas</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f1f5f9;
+      margin: 0;
+      padding: 25px;
+    }
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 25px;
+      max-width: 480px;
+      margin: 30px auto;
+      box-shadow: 0 4px 15px #0001;
+    }
+    h1 { color: #174ea6; }
+    button {
+      width: 100%;
+      padding: 15px;
+      background: #185abc;
+      color: white;
+      border: 0;
+      border-radius: 10px;
+      font-size: 16px;
+      margin-top: 12px;
+    }
+    video {
+      width: 100%;
+      border-radius: 10px;
+      margin-top: 15px;
+    }
+    #status { margin-top: 15px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>DEC | Controle de Visitas</h1>
+    <p>Teste de câmera e GPS</p>
+
+    <button onclick="abrirCamera()">
+      Abrir câmera
+    </button>
+
+    <video id="camera"
+           autoplay
+           playsinline></video>
+
+    <button onclick="capturarGPS()">
+      Capturar GPS
+    </button>
+
+    <p id="status">Aguardando teste...</p>
+  </div>
+
+  <script>
+    async function abrirCamera() {
+      try {
+        const stream =
+          await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "environment" },
+            audio: false
+          });
+
+        document.getElementById("camera").srcObject =
+          stream;
+
+        document.getElementById("status").textContent =
+          "Câmera funcionando!";
+      } catch (erro) {
+        document.getElementById("status").textContent =
+          "Erro na câmera: " + erro.message;
+      }
+    }
+
+    function capturarGPS() {
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          document.getElementById("status").textContent =
+            "GPS funcionando! Precisão: " +
+            Math.round(pos.coords.accuracy) + " metros";
+        },
+        erro => {
+          document.getElementById("status").textContent =
+            "Erro no GPS: " + erro.message;
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 20000
+        }
+      );
+    }
+  </script>
+</body>
+</html>
